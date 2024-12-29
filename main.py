@@ -12,153 +12,100 @@ keyboard = Controller()
 
 cap = cv2.VideoCapture(0)
 
+BUTTON_SIZE = 40  # Reduced from 60
+BUTTONS = {
+    "UP": {"pos": (0, 0), "key": Key.up, "color": (0, 165, 255)},
+    "DOWN": {"pos": (0, 0), "key": Key.down, "color": (0, 165, 255)},
+    "LEFT": {"pos": (0, 0), "key": Key.left, "color": (0, 165, 255)},
+    "RIGHT": {"pos": (0, 0), "key": Key.right, "color": (0, 165, 255)},
+    "ENTER": {
+        "pos": (0, 0),
+        "key": Key.enter,
+        "color": (255, 165, 0),
+    },  # Orange color for Enter
+}
+
 COOLDOWN_FRAMES = 10
 cooldown = 0
-last_direction = None
 
 
 def calculate_distance(p1, p2):
-    """Calculate Euclidean distance between two points"""
-    return math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
+    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
 
 
-def is_thumb_extended(hand_landmarks):
-    """
-    Detect if thumb is extended in any direction
-    Uses distance ratios and angles to detect extension
-    """
-    thumb_tip = hand_landmarks.landmark[4]
-    thumb_ip = hand_landmarks.landmark[3]
-    thumb_mcp = hand_landmarks.landmark[2]
-    thumb_cmc = hand_landmarks.landmark[1]
-    wrist = hand_landmarks.landmark[0]
-
-    index_mcp = hand_landmarks.landmark[5]
-
-    tip_to_ip = calculate_distance(thumb_tip, thumb_ip)
-    ip_to_mcp = calculate_distance(thumb_ip, thumb_mcp)
-    mcp_to_palm = calculate_distance(thumb_mcp, wrist)
-    tip_to_palm = calculate_distance(thumb_tip, wrist)
-
-    tip_to_index = calculate_distance(thumb_tip, index_mcp)
-
-    # Conditions for thumb extension:
-    # 1. Thumb tip should be far from index MCP (extended away)
-    # 2. Tip to palm distance should be significant
-    # 3. The segments should form an extended line (not curled)
-
-    min_extension_ratio = 0.3  # Minimum ratio of tip distance to palm width
-    if (
-        tip_to_palm > mcp_to_palm * min_extension_ratio
-        and tip_to_index > mcp_to_palm * min_extension_ratio
-    ):
-        return True
-
-    return False
-
-
-def get_direction(hand_landmarks, image_shape):
-    """
-    Detect direction based on index finger position relative to palm center
-    """
-    palm_x = hand_landmarks.landmark[0].x
-    palm_y = hand_landmarks.landmark[0].y
-
-    index_x = hand_landmarks.landmark[8].x
-    index_y = hand_landmarks.landmark[8].y
-
-    dx = index_x - palm_x
-    dy = index_y - palm_y
-    distance_x = abs(dx)
-    distance_y = abs(dy)
-
-    min_threshold = 0.1
-
-    if max(distance_x, distance_y) < min_threshold:
-        return None
-
-    if distance_x > distance_y:
-        if dx > 0:
-            return "RIGHT"
-        else:
-            return "LEFT"
-    else:
-        if dy > 0:
-            return "DOWN"
-        else:
-            return "UP"
-
-
-def simulate_key_press(direction):
-    """Simulate keyboard press based on gesture"""
-    if direction == "UP":
-        keyboard.press(Key.up)
-        keyboard.release(Key.up)
-    elif direction == "DOWN":
-        keyboard.press(Key.down)
-        keyboard.release(Key.down)
-    elif direction == "LEFT":
-        keyboard.press(Key.left)
-        keyboard.release(Key.left)
-    elif direction == "RIGHT":
-        keyboard.press(Key.right)
-        keyboard.release(Key.right)
-
-
-def draw_overlay(image, direction=None, thumb_up=False):
-    """Draw visual overlay showing controls and current direction"""
-    h, w, _ = image.shape
-
-    box_color = (0, 0, 0)
-    cv2.rectangle(image, (10, 10), (300, 150), box_color, -1)
-
-    cv2.putText(
-        image,
-        "1. Point index finger in direction",
-        (20, 35),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
-        (255, 255, 255),
-        2,
+def detect_pinch(hand_landmarks, image_shape):
+    thumb_tip = (
+        int(hand_landmarks.landmark[4].x * image_shape[1]),
+        int(hand_landmarks.landmark[4].y * image_shape[0]),
     )
-    cv2.putText(
-        image,
-        "2. Extend thumb to confirm",
-        (20, 65),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
-        (255, 255, 255),
-        2,
+    index_tip = (
+        int(hand_landmarks.landmark[8].x * image_shape[1]),
+        int(hand_landmarks.landmark[8].y * image_shape[0]),
     )
 
-    if direction:
-        status_color = (0, 255, 255)
-        if thumb_up:
-            status_color = (0, 255, 0)
+    distance = calculate_distance(thumb_tip, index_tip)
+    pinch_point = (
+        (thumb_tip[0] + index_tip[0]) // 2,
+        (thumb_tip[1] + index_tip[1]) // 2,
+    )
+    return distance < 20, pinch_point
+
+
+def setup_buttons(image_shape):
+    h, w = image_shape[:2]
+    center_x = w // 2
+    center_y = h // 2
+    offset = BUTTON_SIZE * 2
+
+    BUTTONS["UP"]["pos"] = (int(center_x), int(center_y - offset))
+    BUTTONS["DOWN"]["pos"] = (int(center_x), int(center_y + offset))
+    BUTTONS["LEFT"]["pos"] = (int(center_x - offset), int(center_y))
+    BUTTONS["RIGHT"]["pos"] = (int(center_x + offset), int(center_y))
+    BUTTONS["ENTER"]["pos"] = (
+        int(center_x),
+        int(center_y),
+    )  # Center position for Enter
+
+
+def draw_buttons(image, active_button=None):
+    overlay = image.copy()
+
+    for direction, button in BUTTONS.items():
+        center_point = (int(button["pos"][0]), int(button["pos"][1]))
+        color = (0, 255, 0) if direction == active_button else button["color"]
+        cv2.circle(overlay, center_point, BUTTON_SIZE, color, -1)
         cv2.putText(
-            image,
-            f"Direction: {direction}",
-            (20, 95),
+            overlay,
+            direction,
+            (center_point[0] - 25, center_point[1] + 5),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            status_color,
+            0.5 if direction == "ENTER" else 0.6,  # Smaller text for ENTER
+            (255, 255, 255),
             2,
         )
 
-    thumb_status = "CONFIRMED!" if thumb_up else "Waiting for thumb..."
-    thumb_color = (0, 255, 0) if thumb_up else (0, 165, 255)
-    cv2.putText(
-        image,
-        f"Status: {thumb_status}",
-        (20, 125),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        thumb_color,
-        2,
-    )
+    # Apply transparency
+    alpha = 0.6  # 60% opacity
+    cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, image)
+
+
+def check_button_press(pinch_point):
+    for direction, button in BUTTONS.items():
+        if calculate_distance(pinch_point, button["pos"]) < BUTTON_SIZE:
+            return direction
+    return None
+
+
+def simulate_key_press(direction):
+    keyboard.press(BUTTONS[direction]["key"])
+    keyboard.release(BUTTONS[direction]["key"])
 
 
 try:
+    success, image = cap.read()
+    if success:
+        setup_buttons(image.shape)
+
     while cap.isOpened():
         success, image = cap.read()
         if not success:
@@ -167,45 +114,26 @@ try:
         image = cv2.flip(image, 1)
 
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
         results = hands.process(image_rgb)
 
-        current_direction = None
-        thumb_up = False
+        active_button = None
 
         if results.multi_hand_landmarks:
             hand_landmarks = results.multi_hand_landmarks[0]
-
-            mp_draw.draw_landmarks(
-                image,
-                hand_landmarks,
-                mp_hands.HAND_CONNECTIONS,
-                mp_draw.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2),
-                mp_draw.DrawingSpec(color=(255, 0, 0), thickness=2),
-            )
-
-            palm_x = int(hand_landmarks.landmark[0].x * image.shape[1])
-            palm_y = int(hand_landmarks.landmark[0].y * image.shape[0])
-            cv2.circle(image, (palm_x, palm_y), 10, (255, 0, 0), -1)
-
-            index_x = int(hand_landmarks.landmark[8].x * image.shape[1])
-            index_y = int(hand_landmarks.landmark[8].y * image.shape[0])
-            cv2.circle(image, (index_x, index_y), 8, (0, 255, 0), -1)
-            cv2.line(image, (palm_x, palm_y), (index_x, index_y), (0, 255, 0), 2)
+            mp_draw.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
             if cooldown == 0:
-                current_direction = get_direction(hand_landmarks, image.shape)
-                thumb_up = is_thumb_extended(hand_landmarks)
-
-                if current_direction and thumb_up:
-                    simulate_key_press(current_direction)
-                    cooldown = COOLDOWN_FRAMES
+                is_pinching, pinch_point = detect_pinch(hand_landmarks, image.shape)
+                if is_pinching:
+                    active_button = check_button_press(pinch_point)
+                    if active_button:
+                        simulate_key_press(active_button)
+                        cooldown = COOLDOWN_FRAMES
             else:
                 cooldown -= 1
 
-        draw_overlay(image, current_direction, thumb_up)
-
-        cv2.imshow("Hand Direction Control", image)
+        draw_buttons(image, active_button)
+        cv2.imshow("Button Control", image)
 
         if cv2.waitKey(5) & 0xFF == 27:
             break
