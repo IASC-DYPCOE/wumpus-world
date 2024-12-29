@@ -12,7 +12,7 @@ keyboard = Controller()
 
 cap = cv2.VideoCapture(0)
 
-BUTTON_SIZE = 40  # Reduced from 60
+BUTTON_SIZE = 40  
 BUTTONS = {
     "UP": {"pos": (0, 0), "key": Key.up, "color": (0, 165, 255)},
     "DOWN": {"pos": (0, 0), "key": Key.down, "color": (0, 165, 255)},
@@ -22,7 +22,7 @@ BUTTONS = {
         "pos": (0, 0),
         "key": Key.enter,
         "color": (255, 165, 0),
-    },  # Orange color for Enter
+    },  
 }
 
 COOLDOWN_FRAMES = 10
@@ -64,7 +64,7 @@ def setup_buttons(image_shape):
     BUTTONS["ENTER"]["pos"] = (
         int(center_x),
         int(center_y),
-    )  # Center position for Enter
+    )  
 
 
 def draw_buttons(image, active_button=None):
@@ -79,13 +79,12 @@ def draw_buttons(image, active_button=None):
             direction,
             (center_point[0] - 25, center_point[1] + 5),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.5 if direction == "ENTER" else 0.6,  # Smaller text for ENTER
+            0.5 if direction == "ENTER" else 0.6,  
             (255, 255, 255),
             2,
         )
 
-    # Apply transparency
-    alpha = 0.6  # 60% opacity
+    alpha = 0.6  
     cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0, image)
 
 
