@@ -1,28 +1,31 @@
 import cv2
 import mediapipe as mp
-from pynput.keyboard import Controller, Key
 import numpy as np
 import math
+from flask import Flask, Response, jsonify
+from flask_cors import CORS
+import threading
+from queue import Queue
+
+app = Flask(__name__)
+CORS(app)
+
+# Queue to store the latest key press
+key_queue = Queue()
 
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
 mp_draw = mp.solutions.drawing_utils
 
-keyboard = Controller()
-
 cap = cv2.VideoCapture(0)
 
 BUTTON_SIZE = 40  
 BUTTONS = {
-    "UP": {"pos": (0, 0), "key": Key.up, "color": (0, 165, 255)},
-    "DOWN": {"pos": (0, 0), "key": Key.down, "color": (0, 165, 255)},
-    "LEFT": {"pos": (0, 0), "key": Key.left, "color": (0, 165, 255)},
-    "RIGHT": {"pos": (0, 0), "key": Key.right, "color": (0, 165, 255)},
-    "ENTER": {
-        "pos": (0, 0),
-        "key": Key.enter,
-        "color": (255, 165, 0),
-    },  
+    "UP": {"pos": (0, 0), "key": "UP", "color": (0, 165, 255)},
+    "DOWN": {"pos": (0, 0), "key": "DOWN", "color": (0, 165, 255)},
+    "LEFT": {"pos": (0, 0), "key": "LEFT", "color": (0, 165, 255)},
+    "RIGHT": {"pos": (0, 0), "key": "RIGHT", "color": (0, 165, 255)},
+    "ENTER": {"pos": (0, 0), "key": "ENTER", "color": (255, 165, 0)},
 }
 
 COOLDOWN_FRAMES = 10
@@ -95,48 +98,67 @@ def check_button_press(pinch_point):
     return None
 
 
-def simulate_key_press(direction):
-    keyboard.press(BUTTONS[direction]["key"])
-    keyboard.release(BUTTONS[direction]["key"])
-
-
-try:
-    success, image = cap.read()
-    if success:
-        setup_buttons(image.shape)
-
-    while cap.isOpened():
+def process_camera():
+    global cooldown
+    try:
         success, image = cap.read()
-        if not success:
-            continue
+        if success:
+            setup_buttons(image.shape)
 
-        image = cv2.flip(image, 1)
+        while cap.isOpened():
+            success, image = cap.read()
+            if not success:
+                continue
 
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = hands.process(image_rgb)
+            image = cv2.flip(image, 1)
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            results = hands.process(image_rgb)
 
-        active_button = None
+            active_button = None
 
-        if results.multi_hand_landmarks:
-            hand_landmarks = results.multi_hand_landmarks[0]
-            mp_draw.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            if results.multi_hand_landmarks:
+                hand_landmarks = results.multi_hand_landmarks[0]
+                mp_draw.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-            if cooldown == 0:
-                is_pinching, pinch_point = detect_pinch(hand_landmarks, image.shape)
-                if is_pinching:
-                    active_button = check_button_press(pinch_point)
-                    if active_button:
-                        simulate_key_press(active_button)
-                        cooldown = COOLDOWN_FRAMES
-            else:
-                cooldown -= 1
+                if cooldown == 0:
+                    is_pinching, pinch_point = detect_pinch(hand_landmarks, image.shape)
+                    if is_pinching:
+                        active_button = check_button_press(pinch_point)
+                        if active_button:
+                            key_queue.put(BUTTONS[active_button]["key"])
+                            cooldown = COOLDOWN_FRAMES
+                else:
+                    cooldown -= 1
 
-        draw_buttons(image, active_button)
-        cv2.imshow("Button Control", image)
+            draw_buttons(image, active_button)
+            cv2.imshow("Button Control", image)
 
-        if cv2.waitKey(5) & 0xFF == 27:
-            break
+            if cv2.waitKey(5) & 0xFF == 27:
+                break
 
-finally:
-    cap.release()
-    cv2.destroyAllWindows()
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+
+
+@app.route('/get-key', methods=['GET'])
+def get_key():
+    try:
+        key = key_queue.get_nowait()
+        return jsonify({"key": key})
+    except:
+        return jsonify({"key": None})
+
+
+def run_flask():
+    app.run(port=5000)
+
+
+if __name__ == "__main__":
+    # Start Flask server in a separate thread
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    # Run camera processing in main thread
+    process_camera()

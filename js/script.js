@@ -216,6 +216,56 @@ function changeLanguageTo(locale){
     draw();
 }
 
+// Add this near your other initialization code
+function checkGestureControls() {
+    fetch('http://localhost:5000/get-key')
+        .then(response => response.json())
+        .then(data => {
+            if (data.key) {
+                // Simulate key press based on gesture
+                switch(data.key) {
+                    case 'UP':
+                        simulateKeyPress(38); // Up arrow key code
+                        break;
+                    case 'DOWN':
+                        simulateKeyPress(40); // Down arrow key code
+                        break;
+                    case 'LEFT':
+                        simulateKeyPress(37); // Left arrow key code
+                        break;
+                    case 'RIGHT':
+                        simulateKeyPress(39); // Right arrow key code
+                        break;
+                    case 'ENTER':
+                        simulateKeyPress(13); // Enter key code
+                        break;
+                }
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+function simulateKeyPress(keyCode) {
+    // Create and dispatch keydown event
+    const keydownEvent = new KeyboardEvent('keydown', {
+        keyCode: keyCode,
+        which: keyCode,
+        bubbles: true
+    });
+    document.dispatchEvent(keydownEvent);
+
+    // Create and dispatch keyup event
+    const keyupEvent = new KeyboardEvent('keyup', {
+        keyCode: keyCode,
+        which: keyCode,
+        bubbles: true
+    });
+    document.dispatchEvent(keyupEvent);
+}
+
+// Start polling for gesture controls
+setInterval(checkGestureControls, 100); // Check every 100ms
+
 $(function(){
 
 	console.log("Welcome to Wumpus World Simulator");
