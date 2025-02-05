@@ -46,8 +46,12 @@ var Player = function(env, x, y) {
 
             if (deadWumpus) {
                 resources.play("arrow");
+                showMessage("Great shot! Wumpus eliminated!");
             }else{
                 resources.play("error");
+                if (this.arrow === 0) {
+                    showMessage("No arrows left! Be careful!");
+                }
             }
         }
 
@@ -137,3 +141,12 @@ var Player = function(env, x, y) {
         }
 	};
 };
+
+function showMessage(text) {
+  $('#game-messages').html(`
+    <div class="alert alert-warning alert-dismissible fade show">
+      ${text}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  `);
+}

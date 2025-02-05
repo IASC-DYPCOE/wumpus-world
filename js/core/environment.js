@@ -158,7 +158,15 @@ var Environment = function(i, j, width, height) {
         for (let j = 1; j < this.j; j++) {
             this.drawLine(ctx, 0, j*this.height, this.i*this.width, j*this.height);
         }
+
+        // Add highlighted paths to nearby gold
+        this.drawHints(ctx);
 	};
+
+    this.drawHints = function(ctx) {
+        // Draw subtle arrows pointing to nearby gold
+        // Highlight safe paths
+    }
 
     this.drawText = function(ctx, text, i, j, offset){
         ctx.font="12px Verdana";

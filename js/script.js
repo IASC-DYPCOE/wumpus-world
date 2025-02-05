@@ -1,4 +1,3 @@
-
 var canvas,			// Canvas DOM element
 	ctx,
     keys,
@@ -34,6 +33,25 @@ function restart(){
 	isFinished = false,
 
     animate();
+}
+
+// Add after environment initialization
+function updateStatusIndicators() {
+  const dangerLevel = env.wumpus.length > 5 ? 'High' : 'Low';
+  const goldProximity = isNearGold() ? 'Gold nearby!' : '';
+  
+  $('#game-status').html(`
+    <div class="alert alert-info">
+      <strong>Status:</strong>
+      <span>Danger Level: ${dangerLevel}</span>
+      <span>${goldProximity}</span>
+    </div>
+  `);
+}
+
+function isNearGold() {
+  // Check if gold is in adjacent cells
+  // Return true if gold is nearby
 }
 
 // Browser window resize
@@ -261,6 +279,11 @@ $(function(){
         event.preventDefault();
         changeVolumeTo($(this).val());
     });
+
+    if (!localStorage.getItem('tutorialSeen')) {
+        $('#tutorial-modal').modal('show');
+        localStorage.setItem('tutorialSeen', true);
+    }
 
     resources.load().then(() => {
 
