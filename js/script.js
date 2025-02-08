@@ -71,48 +71,46 @@ function onKeydown(e) {
 };
 
 function update(){
+    // Remove the score penalty for movement
+    player.update(keys);
 
-	if (player.update(keys)) {
-		player.score -= 10;
-	}
+    var deadWumpus = player.kill(keys);
 
-	var deadWumpus = player.kill(keys);
-
-	if (deadWumpus) {
-		player.score += 1000;
+    if (deadWumpus) {
+        player.score += 1000;
         env.removeWumpus(deadWumpus);
-	}
+    }
 
-	var capturedGold = player.capture(keys);
+    var capturedGold = player.capture(keys);
 
-	if (capturedGold) {
+    if (capturedGold) {
 
         player.score += 1000;
 
-		env.removeGold(capturedGold);
+        env.removeGold(capturedGold);
 
         resources.play("gold");
 
-		if (env.golds.length == 0){
-			isFinished = true;
-		}
-	}
+        if (env.golds.length == 0){
+            isFinished = true;
+        }
+    }
 
-	if(env.hasAHole(player) || env.hasAWumpus(player)){
-		isAlive = false;
-	}
+    if(env.hasAHole(player) || env.hasAWumpus(player)){
+        isAlive = false;
+    }
 
-	$("#score").html(player.score);
-	$("#arrow").html(player.arrow);
-	$("#gold").html(env.golds.length);
+    $("#score").html(player.score);
+    $("#arrow").html(player.arrow);
+    $("#gold").html(env.golds.length);
 
-	if(!isAlive){
-		displayGameOver();
-	}
+    if(!isAlive){
+        displayGameOver();
+    }
 
-	if(isFinished){
+    if(isFinished){
         displayCongratulations();
-	}
+    }
 }
 
 function displayGameOver(){

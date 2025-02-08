@@ -100,38 +100,52 @@ var Environment = function(i, j, width, height) {
     };
 
     this.draw = function(ctx) {
+        const tremor = $.i18n("Tremor");
+        const roar = $.i18n("Roar");
 
-        const breeze = $.i18n("breeze");
-        const stench = $.i18n("stench");
-
+        // Draw floor tiles
         for(var i = 0; i < this.i; i++){
             for(var j = 0; j < this.j; j++){
                 ctx.drawImage(resources.images['floor'], i*this.width, j*this.height, this.width, this.height);
             }
         }
 
+        // Draw holes and tremor indicators
         for (let i = 0; i < this.holes.length; i++) {
-
             const hole = this.holes[i];
+            
+            // Draw tremor highlights
+            ctx.fillStyle = 'rgba(0, 149, 255, 0.59)'; // Orange with transparency
+            this.drawHighlight(ctx, hole[0], hole[1] + 1);
+            this.drawHighlight(ctx, hole[0], hole[1] - 1);
+            this.drawHighlight(ctx, hole[0] + 1, hole[1]);
+            this.drawHighlight(ctx, hole[0] - 1, hole[1]);
 
             ctx.drawImage(resources.images['hole'], hole[0]*this.width, hole[1]*this.height, this.width, this.height);
 
-            this.drawText(ctx, breeze, hole[0], hole[1] + 1, 3);
-            this.drawText(ctx, breeze, hole[0], hole[1] - 1, 3);
-            this.drawText(ctx, breeze, hole[0] + 1, hole[1], 3);
-            this.drawText(ctx, breeze, hole[0] - 1, hole[1], 3);
+            this.drawText(ctx, tremor, hole[0], hole[1] + 1, 3);
+            this.drawText(ctx, tremor, hole[0], hole[1] - 1, 3);
+            this.drawText(ctx, tremor, hole[0] + 1, hole[1], 3);
+            this.drawText(ctx, tremor, hole[0] - 1, hole[1], 3);
         }
 
+        // Draw wumpus and roar indicators
         for (let i = 0; i < this.wumpus.length; i++) {
-
             const wumpu = this.wumpus[i];
+
+            // Draw roar highlights
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; // Red with transparency
+            this.drawHighlight(ctx, wumpu[0], wumpu[1] + 1);
+            this.drawHighlight(ctx, wumpu[0], wumpu[1] - 1);
+            this.drawHighlight(ctx, wumpu[0] + 1, wumpu[1]);
+            this.drawHighlight(ctx, wumpu[0] - 1, wumpu[1]);
 
             ctx.drawImage(resources.images['wumpus'], wumpu[0]*this.width, wumpu[1]*this.height, this.width, this.height);
 
-            this.drawText(ctx, stench, wumpu[0], wumpu[1]+1, 14);
-            this.drawText(ctx, stench, wumpu[0], wumpu[1]-1, 14);
-            this.drawText(ctx, stench, wumpu[0]+1, wumpu[1], 14);
-            this.drawText(ctx, stench, wumpu[0]-1, wumpu[1], 14);
+            this.drawText(ctx, roar, wumpu[0], wumpu[1]+1, 14);
+            this.drawText(ctx, roar, wumpu[0], wumpu[1]-1, 14);
+            this.drawText(ctx, roar, wumpu[0]+1, wumpu[1], 14);
+            this.drawText(ctx, roar, wumpu[0]-1, wumpu[1], 14);
         }
 
         for (let i = 0; i < this.golds.length; i++) {
@@ -183,6 +197,14 @@ var Environment = function(i, j, width, height) {
     	ctx.lineTo(x1+0.5, y1+0.5);
     	ctx.stroke();
     }
+
+    // Add new helper method for drawing cell highlights
+    this.drawHighlight = function(ctx, i, j) {
+        // Only highlight cells within bounds
+        if (i >= 0 && i < this.i && j >= 0 && j < this.j) {
+            ctx.fillRect(i*this.width, j*this.height, this.width, this.height);
+        }
+    };
 
     this.randomInitialization();
 };
